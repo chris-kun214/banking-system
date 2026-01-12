@@ -1,0 +1,71 @@
+# ===================================
+# Banking System - 通用配置
+# ===================================
+# 使用方法:
+# 本地开发: --spring.profiles.active=local 或设置环境变量 SPRING_PROFILES_ACTIVE=local
+# 生产环境: --spring.profiles.active=prod 或设置环境变量 SPRING_PROFILES_ACTIVE=prod
+# ===================================
+
+spring:
+  application:
+    name: banking
+
+  profiles:
+    active: local
+
+  # ===================================
+  # 数据源配置 (通过profile加载具体配置)
+  # ===================================
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # ===================================
+  # JPA / Hibernate 配置
+  # ===================================
+  jpa:
+    hibernate:
+      # 本地环境使用update，生产环境建议使用validate
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+
+# ===================================
+# 服务器配置
+# ===================================
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+  # 生产环境优雅关闭
+  shutdown: graceful
+
+# ===================================
+# JWT 配置
+# ===================================
+jwt:
+  # 生产环境请务必更换为安全的密钥！
+  secret: ${JWT_SECRET:***REMOVED_JWT_SECRET***}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+# ===================================
+# 日志配置
+# ===================================
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.banking: ${LOG_LEVEL_APP:INFO}
+    org.springframework.web: INFO
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}

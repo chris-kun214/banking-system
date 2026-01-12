@@ -1,0 +1,68 @@
+# ==================================
+# 阶段 1: 构建阶段 (BUILDER)
+# 作用: 编译代码并生成 Spring Boot Jar 文件
+# ----------------------------------
+# 使用支持 JDK 21 的 Gradle 镜像（明确指定 AMD64 平台）
+FROM --platform=linux/amd64 gradle:8.5-jdk21 AS build
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制 Gradle 构建文件，以便 Docker 利用缓存
+# 项目使用 Kotlin DSL，所以是 .kts 文件
+COPY build.gradle.kts settings.gradle.kts ./
+COPY gradle/ gradle/
+COPY gradlew ./
+
+# 给予 gradlew 执行权限
+RUN chmod +x gradlew
+
+# 下载依赖（利用 Docker 缓存层）
+RUN ./gradlew dependencies --no-daemon || true
+
+# 复制整个项目源代码
+COPY src/ src/
+
+# 执行 Spring Boot 打包任务，生成可执行的 jar（跳过测试加快构建）
+RUN ./gradlew bootJar --no-daemon -x test
+
+# ==================================
+# 阶段 2: 运行阶段 (RUNNER)
+# 作用: 仅包含运行环境 (JRE 21)，最终 Image 体积最小
+# ----------------------------------
+# 使用轻量级的 JRE 21 基础镜像（明确指定 AMD64 平台）
+FROM --platform=linux/amd64 eclipse-temurin:21-jre-alpine
+
+# 设置工作目录
+WORKDIR /app
+
+# 设置时区为 澳大利亚/悉尼 (Australia/Sydney)
+ENV TZ=Australia/Sydney
+
+# 安装 wget（用于健康检查）
+RUN apk add --no-cache wget
+
+# 创建非 root 用户（安全最佳实践）
+RUN addgroup -S spring && adduser -S spring -G spring
+
+# 从构建阶段复制 jar 文件
+COPY --from=build /app/build/libs/*.jar app.jar
+
+# 更改文件所有权
+RUN chown spring:spring app.jar
+
+# 切换到非 root 用户
+USER spring:spring
+
+# 暴露 Spring Boot 服务的端口
+EXPOSE 9090
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:9090/api/auth/health || exit 1
+
+# JVM 优化参数（可通过环境变量覆盖）
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+
+# 容器启动时运行的命令
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

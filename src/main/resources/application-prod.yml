@@ -1,0 +1,110 @@
+# ===================================
+# 生产环境配置 (EC2)
+# ===================================
+# 使用方法:
+# 1. 命令行: java -jar banking.jar --spring.profiles.active=prod
+# 2. 环境变量: export SPRING_PROFILES_ACTIVE=prod
+# 3. 系统属性: -Dspring.profiles.active=prod
+# ===================================
+
+spring:
+  # ===================================
+  # 生产数据库配置 (AWS RDS)
+  # ===================================
+  datasource:
+    # 使用环境变量配置数据库连接信息，不要硬编码到配置文件中！
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://your-rds-endpoint.region.rds.amazonaws.com:5432/banking_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    
+    # 生产环境连接池配置
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      # 连接测试
+      connection-test-query: SELECT 1
+
+  # ===================================
+  # JPA配置
+  # ===================================
+  jpa:
+    hibernate:
+      # 生产环境使用 validate 或 none，不要自动修改数据库结构
+      ddl-auto: validate
+    # 生产环境不显示SQL
+    show-sql: false
+    properties:
+      hibernate:
+        # 生产环境关闭SQL格式化
+        format_sql: false
+        # 启用二级缓存
+        cache:
+          use_second_level_cache: true
+          use_query_cache: true
+
+# ===================================
+# 生产服务器配置
+# ===================================
+server:
+  port: ${SERVER_PORT:8080}
+  # 生产环境优雅关闭配置
+  shutdown: graceful
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+
+# ===================================
+# JWT配置 - 生产环境
+# ===================================
+jwt:
+  # 生产环境必须使用环境变量设置！不要使用默认值！
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+# ===================================
+# 日志配置 - 生产环境
+# ===================================
+logging:
+  level:
+    root: WARN
+    com.banking: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+  file:
+    name: /var/log/banking/application.log
+    max-size: 10MB
+    max-history: 30
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# ===================================
+# 管理端点配置 (Spring Boot Actuator)
+# ===================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ===================================
+# 生产环境部署说明
+# ===================================
+# 在 EC2 上设置环境变量:
+#
+# export SPRING_PROFILES_ACTIVE=prod
+# export SPRING_DATASOURCE_URL=jdbc:postgresql://your-rds-endpoint.region.rds.amazonaws.com:5432/banking_db
+# export SPRING_DATASOURCE_USERNAME=postgres
+# export SPRING_DATASOURCE_PASSWORD=your_secure_password
+# export JWT_SECRET=your_secure_jwt_secret_key
+# export SERVER_PORT=8080
+#
+# 启动应用:
+# java -jar banking-0.0.1-SNAPSHOT.jar
+# ===================================
+
