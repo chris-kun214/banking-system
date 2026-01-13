@@ -18,7 +18,7 @@ services:
   springboot-app:
     build:
       context: .
-      dockerfile: Dockerfile_springboot
+      dockerfile: Dockerfile-springboot
     container_name: banking-service
     ports:
       - "9090:9090" # 映射 9090 端口
