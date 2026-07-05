@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Repository
@@ -41,4 +42,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      */
     List<Transaction> findByAccountIdAndTransactionType(Long accountId,
             Transaction.TransactionType transactionType);
+
+    /**
+     * 根据账号和时间范围查询交易记录（按时间升序）
+     */
+    List<Transaction> findByAccountNumberAndCreatedAtBetweenOrderByCreatedAtAsc(
+            String accountNumber,
+            LocalDateTime startTime,
+            LocalDateTime endExclusive);
 }

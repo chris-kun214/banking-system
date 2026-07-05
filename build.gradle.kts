@@ -34,6 +34,14 @@ dependencies {
     // Jackson for JSON processing
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
+    
+    // AWS SQS SDK
+    implementation("software.amazon.awssdk:sqs:2.25.45")
+    implementation("software.amazon.awssdk:auth:2.25.45")
+    implementation("software.amazon.awssdk:regions:2.25.45")
+    
+    // PDF generation
+    implementation("org.apache.pdfbox:pdfbox:2.0.32")
 
     // JWT
     implementation("io.jsonwebtoken:jjwt-api:0.12.3")

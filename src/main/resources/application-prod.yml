@@ -32,18 +32,18 @@ spring:
   # ===================================
   jpa:
     hibernate:
-      # 生产环境使用 validate 或 none，不要自动修改数据库结构
-      ddl-auto: validate
+      # 通过环境变量控制，首次部署可用 update 自动建表，稳定后可切换为 validate
+      ddl-auto: ${HIBERNATE_DDL_AUTO:validate}
     # 生产环境不显示SQL
     show-sql: false
     properties:
       hibernate:
         # 生产环境关闭SQL格式化
         format_sql: false
-        # 启用二级缓存
+        # 当前未接入 RegionFactory（如 Ehcache/Redis），先关闭二级缓存避免启动失败
         cache:
-          use_second_level_cache: true
-          use_query_cache: true
+          use_second_level_cache: false
+          use_query_cache: false
 
 # ===================================
 # 生产服务器配置

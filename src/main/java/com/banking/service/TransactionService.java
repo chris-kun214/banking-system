@@ -23,6 +23,7 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
+    private final AccountCreditEventPublisher accountCreditEventPublisher;
 
     /**
      * 存款
@@ -51,6 +52,7 @@ public class TransactionService {
         transaction.setCreatedAt(LocalDateTime.now());
 
         Transaction savedTransaction = transactionRepository.save(transaction);
+        accountCreditEventPublisher.publishDepositEvent(savedTransaction);
         return TransactionDTO.fromEntity(savedTransaction);
     }
 
