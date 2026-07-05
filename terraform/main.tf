@@ -8,12 +8,20 @@ terraform {
 }
 
 provider "aws" {
-  region = var.aws_region
+  region  = var.aws_region
+  profile = var.profile
 }
 
 data "aws_caller_identity" "current" {}
 
 data "aws_region" "current" {}
+
+# -----------------------------------
+# SQS
+# -----------------------------------
+resource "aws_sqs_queue" "account_credit_events" {
+  name = "account-credit-events"
+}
 
 # -----------------------------------
 # VPC
@@ -98,7 +106,7 @@ resource "aws_security_group" "bank_ec2_group" {
 
 resource "aws_vpc_security_group_ingress_rule" "ec2_ssh" {
   security_group_id = aws_security_group.bank_ec2_group.id
-  cidr_ipv4         = "202.171.178.8/32"
+  cidr_ipv4         = var.allowed_ssh_cidr
   from_port         = 22
   to_port           = 22
   ip_protocol       = "tcp"
@@ -106,7 +114,7 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_ssh" {
 
 resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
   security_group_id = aws_security_group.bank_ec2_group.id
-  cidr_ipv4         = "202.171.178.8/32"
+  cidr_ipv4         = var.allowed_ssh_cidr
   from_port         = 8080
   to_port           = 8080
   ip_protocol       = "tcp"
@@ -206,6 +214,26 @@ resource "aws_iam_role_policy_attachment" "ec2_pull" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
+resource "aws_iam_role_policy" "ec2_sqs_send" {
+  name = "bank-ec2-sqs-send-policy"
+  role = aws_iam_role.ec2_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:GetQueueUrl",
+          "sqs:GetQueueAttributes",
+          "sqs:SendMessage"
+        ]
+        Resource = aws_sqs_queue.account_credit_events.arn
+      }
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "ec2_profile" {
   name = "bank-ec2-profile"
   role = aws_iam_role.ec2_role.name
@@ -233,13 +261,18 @@ resource "aws_instance" "bank_server" {
   vpc_security_group_ids      = [aws_security_group.bank_ec2_group.id]
   associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
+  user_data_replace_on_change = true
 
   user_data = templatefile("${path.module}/docker.sh", {
-    aws_region   = var.aws_region
-    ecr_repo_uri = "541032290058.dkr.ecr.ap-southeast-2.amazonaws.com/mybank:prod-1.0.0"
-    db_url       = "jdbc:postgresql://${local.db_address}:${local.db_port}/${local.db_name}"
-    db_username  = local.db_username
-    db_password  = local.db_password
+    aws_region         = var.aws_region
+    ecr_repo_uri       = var.image_uri
+    db_url             = "jdbc:postgresql://${local.db_address}:${local.db_port}/${local.db_name}"
+    db_username        = local.db_username
+    db_password        = local.db_password
+    sqs_queue_url      = aws_sqs_queue.account_credit_events.id
+    jwt_secret         = var.jwt_secret
+    jwt_expiration     = var.jwt_expiration
+    hibernate_ddl_auto = var.hibernate_ddl_auto
   })
 
   tags = {

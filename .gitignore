@@ -136,8 +136,11 @@ terraform/.terraform/
 terraform/.terraform.lock.hcl
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
+terraform/tfplan
 *.tfstate
 *.tfstate.*
+*.tfvars
+!*.tfvars.example
 
 ### 测试和覆盖率 ###
 .jacoco/
@@ -180,7 +183,6 @@ spring-boot-devtools.properties
 ### 文档生成 ###
 docs/_build/
 site/
-mdfile/
 
 ### 缓存 ###
 .cache/
