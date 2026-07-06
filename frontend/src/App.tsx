@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
@@ -7,14 +7,10 @@ import { authApi } from './api';
 type Page = 'login' | 'register' | 'dashboard';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('login');
-
-  // 检查用户是否已登录
-  useEffect(() => {
-    if (authApi.isAuthenticated()) {
-      setCurrentPage('dashboard');
-    }
-  }, []);
+  // 用惰性初始值代替"挂载后在 effect 里检查登录态再 setState"，避免多余的一次级联渲染
+  const [currentPage, setCurrentPage] = useState<Page>(() =>
+    authApi.isAuthenticated() ? 'dashboard' : 'login'
+  );
 
   const handleLoginSuccess = () => {
     setCurrentPage('dashboard');
