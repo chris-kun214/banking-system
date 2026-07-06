@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: banking-test
+  
+  # 测试数据源配置 - 使用H2内存数据库
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  
+  # H2控制台
+  h2:
+    console:
+      enabled: true
+  
+  # JPA配置
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  
+  # 安全配置
+  security:
+    user:
+      name: test
+      password: test
+
+# JWT配置（测试环境）
+jwt:
+  secret: test-secret-key-for-jwt-token-generation-banking-app-testing-only
+  expiration: 3600000
+
+# 日志配置
+logging:
+  level:
+    root: WARN
+    com.banking: INFO

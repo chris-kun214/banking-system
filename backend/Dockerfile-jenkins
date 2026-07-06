@@ -1,0 +1,17 @@
+FROM jenkins/jenkins:lts-jdk21
+
+USER root
+
+# 1. 安装基础工具 (wget, unzip 用于安装 Terraform; docker.io 用于调用宿主机 Docker)
+RUN apt-get update && \
+    apt-get install -y wget unzip docker.io && \
+    apt-get clean
+
+# 2. 直接下载并安装 Terraform (跳过复杂的仓库配置)
+# 这里以 1.7.0 版本为例，你可以根据需要换成最新版
+RUN wget https://releases.hashicorp.com/terraform/1.7.0/terraform_1.7.0_linux_amd64.zip && \
+    unzip terraform_1.7.0_linux_amd64.zip && \
+    mv terraform /usr/local/bin/ && \
+    rm terraform_1.7.0_linux_amd64.zip
+
+USER jenkins
