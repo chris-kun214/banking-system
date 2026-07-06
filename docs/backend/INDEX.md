@@ -217,3 +217,4 @@ curl http://localhost:8080/api/accounts
 **项目版本**: 0.0.1-SNAPSHOT  
 **文档版本**: 1.0
 
+Verified: PR-gated CI + branch protection set up on 2026-07-06 as part of the portfolio project bootstrap.
