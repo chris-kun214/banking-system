@@ -34,6 +34,9 @@ class TransactionServiceTest {
     @Mock
     private AccountRepository accountRepository;
 
+    @Mock
+    private AccountCreditEventPublisher accountCreditEventPublisher;
+
     @InjectMocks
     private TransactionService transactionService;
 
@@ -93,6 +96,7 @@ class TransactionServiceTest {
         assertNotNull(result);
         verify(accountRepository).save(any(Account.class));
         verify(transactionRepository).save(any(Transaction.class));
+        verify(accountCreditEventPublisher).publishDepositEvent(any(Transaction.class));
     }
 
     @Test
