@@ -1,7 +1,7 @@
 services:
   jenkins:
     build:
-      context: .
+      context: ./infra/jenkins
       dockerfile: Dockerfile-jenkins
     container_name: jenkins-local
     privileged: true
@@ -17,7 +17,7 @@ services:
 
   springboot-app:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile-springboot
     container_name: banking-service
     ports:

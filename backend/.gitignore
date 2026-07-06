@@ -131,12 +131,7 @@ jenkins_home/logs/
 jenkins_home/cache/
 jenkins_home/plugins/
 
-### Terraform ###
-terraform/.terraform/
-terraform/.terraform.lock.hcl
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
-terraform/tfplan
+### Terraform（实际配置已迁移到 ../infra/terraform，见根 .gitignore） ###
 *.tfstate
 *.tfstate.*
 *.tfvars

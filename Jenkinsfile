@@ -14,7 +14,7 @@ pipeline {
         )
         string(
             name: 'DEPLOY_DIR',
-            defaultValue: '/var/lib/jenkins/deploy/banking_backend',
+            defaultValue: '/var/lib/jenkins/deploy/banking-system',
             description: 'Publish directory on the Jenkins machine (local path) for the simple CD step.'
         )
     }
@@ -36,14 +36,16 @@ pipeline {
 
         stage('2. Build + Test (CI)') {
             steps {
-                echo "Running unit tests and building the jar..."
-                sh 'chmod +x gradlew'
-                sh '''
-                    set -e
-                    java -version
-                    ./gradlew --version
-                    ./gradlew clean test bootJar ${GRADLE_ARGS}
-                '''
+                dir('backend') {
+                    echo "Running unit tests and building the jar..."
+                    sh 'chmod +x gradlew'
+                    sh '''
+                        set -e
+                        java -version
+                        ./gradlew --version
+                        ./gradlew clean test bootJar ${GRADLE_ARGS}
+                    '''
+                }
             }
         }
 
@@ -53,8 +55,8 @@ pipeline {
             }
             post {
                 always {
-                    junit testResults: 'build/test-results/test/*.xml', allowEmptyResults: true
-                    archiveArtifacts artifacts: 'build/libs/*.jar', fingerprint: true, allowEmptyArchive: true
+                    junit testResults: 'backend/build/test-results/test/*.xml', allowEmptyResults: true
+                    archiveArtifacts artifacts: 'backend/build/libs/*.jar', fingerprint: true, allowEmptyArchive: true
                 }
             }
         }
@@ -67,22 +69,24 @@ pipeline {
                 }
             }
             steps {
-                script {
-                    def jarPath = sh(returnStdout: true, script: 'ls -1 build/libs/*.jar | head -n 1').trim()
-                    def gitSha = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-                    def versionTag = "${env.BUILD_NUMBER}-${gitSha}"
+                dir('backend') {
+                    script {
+                        def jarPath = sh(returnStdout: true, script: 'ls -1 build/libs/*.jar | head -n 1').trim()
+                        def gitSha = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+                        def versionTag = "${env.BUILD_NUMBER}-${gitSha}"
 
-                    echo "Publishing jar: ${jarPath}"
-                    echo "Publish directory: ${params.DEPLOY_DIR}"
+                        echo "Publishing jar: ${jarPath}"
+                        echo "Publish directory: ${params.DEPLOY_DIR}"
 
-                    sh """
-                        set -e
-                        mkdir -p '${params.DEPLOY_DIR}/releases'
-                        cp '${jarPath}' '${params.DEPLOY_DIR}/releases/app-${versionTag}.jar'
-                        ln -sfn '${params.DEPLOY_DIR}/releases/app-${versionTag}.jar' '${params.DEPLOY_DIR}/current.jar'
-                        printf 'BUILD_NUMBER=%s\\nGIT_SHA=%s\\nJAR=%s\\n' '${env.BUILD_NUMBER}' '${gitSha}' 'app-${versionTag}.jar' > '${params.DEPLOY_DIR}/VERSION'
-                        ls -lah '${params.DEPLOY_DIR}'
-                    """
+                        sh """
+                            set -e
+                            mkdir -p '${params.DEPLOY_DIR}/releases'
+                            cp '${jarPath}' '${params.DEPLOY_DIR}/releases/app-${versionTag}.jar'
+                            ln -sfn '${params.DEPLOY_DIR}/releases/app-${versionTag}.jar' '${params.DEPLOY_DIR}/current.jar'
+                            printf 'BUILD_NUMBER=%s\\nGIT_SHA=%s\\nJAR=%s\\n' '${env.BUILD_NUMBER}' '${gitSha}' 'app-${versionTag}.jar' > '${params.DEPLOY_DIR}/VERSION'
+                            ls -lah '${params.DEPLOY_DIR}'
+                        """
+                    }
                 }
             }
         }

@@ -1,0 +1,42 @@
+# ===================================
+# Monorepo 根级忽略规则
+# backend/ 和 frontend/ 各自还有自己的 .gitignore（Gradle/Node 构建产物）
+# ===================================
+
+### 密钥与本地配置（永远不进仓库） ###
+.env
+.env.*
+!.env.example
+*.local
+
+### Terraform（infra/terraform 不在 backend/ 目录下，需要根级规则覆盖） ###
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/tfplan
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+### Jenkins 本地运行数据 ###
+jenkins_home/
+
+### Claude Code ###
+.claude/settings.local.json
+
+### IDE / 编辑器 ###
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.iml
+
+### 操作系统 ###
+.DS_Store
+Thumbs.db
+
+### AWS 凭证（以防万一，永远不该出现在仓库任何位置） ###
+*accessKeys*.csv
+credentials.csv
