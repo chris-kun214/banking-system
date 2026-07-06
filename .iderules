@@ -1,0 +1,9 @@
+# Qoder / Trae 编码规范
+
+本项目的完整编码规范、目录结构、密钥管理规则见 [CLAUDE.md](./CLAUDE.md)。这里不重复维护内容，只做同规则的转发，避免多份文档各说各话。
+
+关键点摘要（详见 CLAUDE.md）：
+- 后端：Spring Boot 3.2.1 / Java 21 / Gradle Kotlin DSL，分层固定为 controller/service/repository/entity/dto
+- 前端：React 19 + TypeScript 严格模式，禁止 `any`，用 npm
+- 密钥/密码禁止以真实值作为默认值写进任何被 git 追踪的文件
+- 不装新依赖除非明确要求；不改 `.env` / `terraform.tfvars`；不删测试文件；不 force push

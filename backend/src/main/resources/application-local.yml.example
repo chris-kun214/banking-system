@@ -1,0 +1,31 @@
+# ===================================
+# 本地开发环境配置模板
+# 复制为 application-local.yml（已 gitignore）并填入你自己的值
+# ===================================
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/banking
+    username: your_local_username
+    password: your_local_password
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+server:
+  port: 9090
+
+jwt:
+  # 本地开发随便生成一个即可，不要用生产密钥： openssl rand -base64 32
+  secret: your_local_jwt_secret_base64
+  expiration: 86400000
+
+aws:
+  region: ap-southeast-2
+  sqs:
+    enabled: false
