@@ -106,3 +106,21 @@ variable "asg_desired_capacity" {
   default     = 1
 }
 
+variable "enable_multi_az" {
+  description = "Enable RDS Multi-AZ standby. Roughly doubles instance-hour cost — leave off unless demonstrating HA."
+  type        = bool
+  default     = false
+}
+
+variable "enable_read_replica" {
+  description = "Create a same-region RDS read replica for DR/read scaling. A second full running instance — leave off unless demonstrating it."
+  type        = bool
+  default     = false
+}
+
+variable "replica_instance_class" {
+  description = "Instance class for the optional read replica"
+  type        = string
+  default     = "db.t4g.micro"
+}
+

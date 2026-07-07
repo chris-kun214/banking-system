@@ -206,6 +206,26 @@ resource "aws_db_instance" "banking_rds" {
   db_subnet_group_name   = aws_db_subnet_group.db_subset.name
   vpc_security_group_ids = [aws_security_group.bank_rds_group.id]
 
+  # Off by default — a standby roughly doubles the instance-hour cost. Flip on
+  # only to demonstrate/verify HA, then back off.
+  multi_az = var.enable_multi_az
+
+  skip_final_snapshot = true
+}
+
+# Same-region read replica for disaster recovery / read scaling. Off by
+# default since it's a second full running instance. `engine`/`engine_version`/
+# `db_subnet_group_name` are deliberately NOT set — same-region replicas
+# inherit those from the source automatically, and setting them risks
+# Terraform trying to force an unwanted separate upgrade/network path.
+resource "aws_db_instance" "banking_rds_replica" {
+  count = var.enable_read_replica ? 1 : 0
+
+  identifier          = "bank-rds-replica"
+  replicate_source_db = aws_db_instance.banking_rds.identifier
+  instance_class      = var.replica_instance_class
+
+  publicly_accessible = false
   skip_final_snapshot = true
 }
 
