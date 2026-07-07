@@ -66,7 +66,61 @@ variable "hibernate_ddl_auto" {
 }
 
 variable "allowed_ssh_cidr" {
-  description = "CIDR allowed to reach the EC2 instance over SSH (22) and app port (8080). Supply your own IP/32 via terraform.tfvars — do not default to a real address."
+  description = "CIDR allowed to reach the EC2 instance over SSH (22). Supply your own IP/32 via terraform.tfvars — do not default to a real address."
   type        = string
+}
+
+variable "internal_api_key" {
+  description = "Shared-secret header value for /api/internal/** (called by the reconciliation/report Lambdas). Must be supplied via terraform.tfvars (gitignored) or TF_VAR_internal_api_key."
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudwatch_log_retention_days" {
+  description = "Retention for the app's CloudWatch Logs log group"
+  type        = number
+  default     = 14
+}
+
+variable "daily_reconciliation_image_tag" {
+  description = "Tag of the daily-reconciliation Lambda image, already pushed to its ECR repo before apply. See docs/backend/LAMBDA_DEPLOY_GUIDE.md."
+  type        = string
+  default     = "latest"
+}
+
+variable "asg_min_size" {
+  description = "Minimum app-tier instances. Kept small by default to control cost."
+  type        = number
+  default     = 1
+}
+
+variable "asg_max_size" {
+  description = "Maximum app-tier instances."
+  type        = number
+  default     = 2
+}
+
+variable "asg_desired_capacity" {
+  description = "Desired app-tier instances. Set to 2 only when demonstrating multi-AZ HA; scale back to 1 afterward."
+  type        = number
+  default     = 1
+}
+
+variable "enable_multi_az" {
+  description = "Enable RDS Multi-AZ standby. Roughly doubles instance-hour cost — leave off unless demonstrating HA."
+  type        = bool
+  default     = false
+}
+
+variable "enable_read_replica" {
+  description = "Create a same-region RDS read replica for DR/read scaling. A second full running instance — leave off unless demonstrating it."
+  type        = bool
+  default     = false
+}
+
+variable "replica_instance_class" {
+  description = "Instance class for the optional read replica"
+  type        = string
+  default     = "db.t4g.micro"
 }
 

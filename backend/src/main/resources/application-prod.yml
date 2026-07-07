@@ -91,6 +91,14 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+  # CloudWatch 自定义 metrics 导出（生产环境才推送，本地/测试不需要）
+  metrics:
+    export:
+      cloudwatch:
+        namespace: BankingSystem
+        batch-size: 20
+        step: 1m
+        enabled: ${CLOUDWATCH_METRICS_ENABLED:false}
 
 # ===================================
 # 生产环境部署说明

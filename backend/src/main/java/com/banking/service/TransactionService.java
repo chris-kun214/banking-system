@@ -6,6 +6,9 @@ import com.banking.entity.Account;
 import com.banking.entity.Transaction;
 import com.banking.repository.AccountRepository;
 import com.banking.repository.TransactionRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,19 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
     private final AccountCreditEventPublisher accountCreditEventPublisher;
+    private final MeterRegistry meterRegistry;
+    private final OpenAiTransactionDescriptionService openAiTransactionDescriptionService;
+
+    private void recordTransactionMetrics(Transaction.TransactionType type, BigDecimal amount) {
+        Counter.builder("banking.transactions.count")
+                .tag("type", type.name())
+                .register(meterRegistry)
+                .increment();
+        DistributionSummary.builder("banking.transactions.amount")
+                .tag("type", type.name())
+                .register(meterRegistry)
+                .record(amount.doubleValue());
+    }
 
     /**
      * 存款
@@ -50,9 +66,11 @@ public class TransactionService {
         transaction.setBalanceBefore(balanceBefore);
         transaction.setBalanceAfter(balanceAfter);
         transaction.setCreatedAt(LocalDateTime.now());
+        transaction.setDescription(request.getDescription());
 
         Transaction savedTransaction = transactionRepository.save(transaction);
         accountCreditEventPublisher.publishDepositEvent(savedTransaction);
+        recordTransactionMetrics(Transaction.TransactionType.DEPOSIT, request.getAmount());
         return TransactionDTO.fromEntity(savedTransaction);
     }
 
@@ -87,8 +105,10 @@ public class TransactionService {
         transaction.setBalanceBefore(balanceBefore);
         transaction.setBalanceAfter(balanceAfter);
         transaction.setCreatedAt(LocalDateTime.now());
+        transaction.setDescription(request.getDescription());
 
         Transaction savedTransaction = transactionRepository.save(transaction);
+        recordTransactionMetrics(Transaction.TransactionType.WITHDRAW, request.getAmount());
         return TransactionDTO.fromEntity(savedTransaction);
     }
 
@@ -142,7 +162,8 @@ public class TransactionService {
         transferOutTransaction.setBalanceBefore(sourceBalanceBefore);
         transferOutTransaction.setBalanceAfter(sourceBalanceAfter);
         transferOutTransaction.setCreatedAt(LocalDateTime.now());
-        
+        transferOutTransaction.setDescription(request.getDescription());
+
         Transaction savedTransferOut = transactionRepository.save(transferOutTransaction);
 
         // 创建转入交易记录
@@ -157,6 +178,7 @@ public class TransactionService {
         transferInTransaction.setCreatedAt(LocalDateTime.now());
         
         transactionRepository.save(transferInTransaction);
+        recordTransactionMetrics(Transaction.TransactionType.TRANSFER_OUT, request.getAmount());
 
         return TransactionDTO.fromEntity(savedTransferOut);
     }
@@ -280,6 +302,24 @@ public class TransactionService {
      */
     public boolean transactionExists(Long id) {
         return transactionRepository.existsById(id);
+    }
+
+    /**
+     * 按需触发 LLM 交易描述推荐（不挂在存取款/转账关键路径上，避免第三方 API 延迟/故障影响资金操作）
+     */
+    @Transactional
+    public TransactionDTO suggestDescription(Long id) {
+        Transaction transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("交易记录不存在，ID: " + id));
+
+        OpenAiTransactionDescriptionService.Suggestion suggestion =
+                openAiTransactionDescriptionService.suggest(transaction, transaction.getDescription());
+
+        transaction.setAiDescription(suggestion.description());
+        transaction.setAiCategory(suggestion.category());
+
+        Transaction saved = transactionRepository.save(transaction);
+        return TransactionDTO.fromEntity(saved);
     }
 
     /**

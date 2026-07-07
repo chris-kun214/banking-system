@@ -7,12 +7,15 @@ import com.banking.entity.Transaction;
 import com.banking.entity.User;
 import com.banking.repository.AccountRepository;
 import com.banking.repository.TransactionRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -36,6 +39,12 @@ class TransactionServiceTest {
 
     @Mock
     private AccountCreditEventPublisher accountCreditEventPublisher;
+
+    @Spy
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    @Mock
+    private OpenAiTransactionDescriptionService openAiTransactionDescriptionService;
 
     @InjectMocks
     private TransactionService transactionService;
@@ -360,5 +369,38 @@ class TransactionServiceTest {
         });
         assertTrue(exception.getMessage().contains("交易记录不存在"));
         verify(transactionRepository, never()).deleteById(1L);
+    }
+
+    @Test
+    @DisplayName("交易描述推荐 - 成功写回 AI 描述和分类")
+    void suggestDescription_Success() {
+        // Arrange
+        testTransaction.setDescription("cash from Westpac ATM");
+        when(transactionRepository.findById(1L)).thenReturn(Optional.of(testTransaction));
+        when(openAiTransactionDescriptionService.suggest(testTransaction, "cash from Westpac ATM"))
+                .thenReturn(new OpenAiTransactionDescriptionService.Suggestion("ATM cash withdrawal", "Other"));
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(testTransaction);
+
+        // Act
+        TransactionDTO result = transactionService.suggestDescription(1L);
+
+        // Assert
+        assertEquals("ATM cash withdrawal", result.getAiDescription());
+        assertEquals("Other", result.getAiCategory());
+        verify(transactionRepository).save(testTransaction);
+    }
+
+    @Test
+    @DisplayName("交易描述推荐 - 交易记录不存在")
+    void suggestDescription_TransactionNotFound_ThrowsException() {
+        // Arrange
+        when(transactionRepository.findById(99L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            transactionService.suggestDescription(99L);
+        });
+        assertTrue(exception.getMessage().contains("交易记录不存在"));
+        verify(openAiTransactionDescriptionService, never()).suggest(any(), any());
     }
 }

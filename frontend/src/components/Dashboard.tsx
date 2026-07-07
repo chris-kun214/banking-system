@@ -1,16 +1,18 @@
+import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api';
+import { clearCredentials } from '../store/authSlice';
+import { useAppDispatch, useAppSelector } from '../store';
 import './Dashboard.css';
 
-interface DashboardProps {
-  onLogout: () => void;
-}
-
-export default function Dashboard({ onLogout }: DashboardProps) {
-  const user = authApi.getCurrentUser();
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth);
 
   const handleLogout = () => {
     authApi.logout();
-    onLogout();
+    dispatch(clearCredentials());
+    navigate('/login');
   };
 
   return (

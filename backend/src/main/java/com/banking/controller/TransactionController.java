@@ -226,6 +226,22 @@ public class TransactionController {
     }
 
     /**
+     * 按需触发一次 LLM 交易描述推荐（未配置 OpenAI key 时自动走规则兜底，不会报错）
+     * POST /api/transactions/{id}/suggest-description
+     */
+    @PostMapping("/{id}/suggest-description")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<TransactionDTO>> suggestDescription(@PathVariable Long id) {
+        try {
+            TransactionDTO transaction = transactionService.suggestDescription(id);
+            return ResponseEntity.ok(ApiResponse.success("描述推荐已生成", transaction));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    /**
      * 检查交易记录是否存在
      * HEAD /api/transactions/{id}
      */

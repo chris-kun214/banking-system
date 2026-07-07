@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api';
+import { setCredentials } from '../store/authSlice';
+import { useAppDispatch } from '../store';
 import type { LoginRequest } from '../types';
 import './Auth.css';
 
-interface LoginProps {
-  onLoginSuccess: () => void;
-  onSwitchToRegister: () => void;
-}
-
-export default function Login({ onLoginSuccess, onSwitchToRegister }: LoginProps) {
+export default function Login() {
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [formData, setFormData] = useState<LoginRequest>({
     username: '',
     password: '',
@@ -23,8 +23,9 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }: LoginProps
     setLoading(true);
 
     try {
-      await authApi.login(formData);
-      onLoginSuccess();
+      const response = await authApi.login(formData);
+      dispatch(setCredentials(response));
+      navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败，请重试');
     } finally {
@@ -93,7 +94,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister }: LoginProps
             <button 
               type="button" 
               className="link-button" 
-              onClick={onSwitchToRegister}
+              onClick={() => navigate('/register')}
             >
               立即注册
             </button>

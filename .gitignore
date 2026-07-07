@@ -40,3 +40,9 @@ Thumbs.db
 ### AWS 凭证（以防万一，永远不该出现在仓库任何位置） ###
 *accessKeys*.csv
 credentials.csv
+
+### Python（infra/lambda, infra/spark） ###
+__pycache__/
+*.pyc
+.pytest_cache/
+infra/lambda/build/

@@ -90,3 +90,28 @@ aws:
 report:
   monthly:
     output-dir: ${MONTHLY_REPORT_OUTPUT_DIR:./build/reports/monthly}
+
+# ===================================
+# 内部接口鉴权（供 Lambda 调用 /api/internal/** ，不走用户 JWT）
+# ===================================
+internal:
+  # 必须通过环境变量提供；留空则 InternalApiKeyFilter 直接拒绝所有请求（fail closed）
+  api-key: ${INTERNAL_API_KEY:}
+
+# ===================================
+# OpenAI 交易描述推荐（可选功能，未配置 key 时自动走规则兜底）
+# ===================================
+openai:
+  enabled: ${OPENAI_ENABLED:false}
+  api-key: ${OPENAI_API_KEY:}
+  model: ${OPENAI_MODEL:gpt-4o-mini}
+  base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+
+# ===================================
+# Actuator（健康检查默认放开，其余端点按 profile 收紧）
+# ===================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
