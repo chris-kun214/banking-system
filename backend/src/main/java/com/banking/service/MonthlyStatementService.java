@@ -5,6 +5,7 @@ import com.banking.entity.Transaction;
 import com.banking.repository.AccountRepository;
 import com.banking.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -23,6 +24,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MonthlyStatementService {
@@ -55,6 +57,24 @@ public class MonthlyStatementService {
         } catch (IOException e) {
             throw new RuntimeException("生成月度流水 PDF 失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 为所有账户批量生成月度流水 PDF（供 EventBridge 定时触发的月报 Lambda 调用）。
+     * 单个账户生成失败不应中断整批，记录日志后继续处理下一个账户。
+     */
+    public int generateMonthlyStatementsForAllAccounts(YearMonth yearMonth) {
+        List<Account> accounts = accountRepository.findAll();
+        int generated = 0;
+        for (Account account : accounts) {
+            try {
+                generateMonthlyStatementPdf(account.getAccountNumber(), yearMonth);
+                generated++;
+            } catch (RuntimeException e) {
+                log.error("生成月度流水失败，账号: {}, 月份: {}", account.getAccountNumber(), yearMonth, e);
+            }
+        }
+        return generated;
     }
 
     private void writePdf(Path filePath, Account account, List<Transaction> transactions, YearMonth yearMonth) throws IOException {
