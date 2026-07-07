@@ -191,8 +191,12 @@ resource "aws_db_subnet_group" "db_subset" {
 resource "aws_db_instance" "banking_rds" {
   identifier = "bank-rds"
 
-  engine         = "postgres"
-  engine_version = "17.5"
+  engine = "postgres"
+  # RDS silently provisioned 17.9 for a requested "17.5" (maps to whatever
+  # minor version is currently supported on that major track at creation
+  # time) — declaring the version actually running avoids Terraform trying
+  # to "downgrade" it back to 17.5 on every apply, which RDS rejects outright.
+  engine_version = "17.9"
   instance_class = "db.t4g.micro"
 
   allocated_storage = 20
@@ -206,9 +210,22 @@ resource "aws_db_instance" "banking_rds" {
   db_subnet_group_name   = aws_db_subnet_group.db_subset.name
   vpc_security_group_ids = [aws_security_group.bank_rds_group.id]
 
+  # Without this, modifications (e.g. backup_retention_period) are queued for
+  # the next maintenance window instead of applying right away — surfaced
+  # during live verification when a read-replica create raced ahead of a
+  # still-pending backup-retention change. Fine for this project's use case
+  # (immediate feedback matters more than avoiding a brief modification
+  # window); a real production DB might prefer scheduled maintenance instead.
+  apply_immediately = true
+
   # Off by default — a standby roughly doubles the instance-hour cost. Flip on
   # only to demonstrate/verify HA, then back off.
   multi_az = var.enable_multi_az
+
+  # Automated backups (also required by RDS before it will let you create a
+  # read replica off this instance — CreateDBInstanceReadReplica rejects a
+  # source with backup_retention_period = 0).
+  backup_retention_period = var.db_backup_retention_days
 
   skip_final_snapshot = true
 }

@@ -14,7 +14,7 @@
 
 resource "aws_security_group" "alb_sg" {
   name        = "bank-alb-sg"
-  description = "ALB security group — public HTTP in, forwards to the app tier"
+  description = "ALB security group - public HTTP in, forwards to the app tier"
   vpc_id      = aws_vpc.bank_vpc.id
 }
 
@@ -61,10 +61,16 @@ resource "aws_lb_target_group" "bank_tg" {
   target_type = "instance"
 
   health_check {
-    path                = "/actuator/health"
-    matcher             = "200"
-    interval            = 30
-    timeout             = 5
+    path     = "/actuator/health"
+    matcher  = "200"
+    interval = 30
+    # /actuator/health's DB indicator calls HikariCP, which occasionally takes
+    # 8-10s to respond right after connection churn (observed live during an
+    # RDS Multi-AZ failover: HikariCP had to detect and evict stale connections
+    # before it could validate a fresh one). 5s was too tight and flapped a
+    # perfectly healthy instance to "unhealthy," failing an ASG instance
+    # refresh. 10s leaves headroom without approaching the 30s interval.
+    timeout             = 10
     healthy_threshold   = 2
     unhealthy_threshold = 3
   }
@@ -139,8 +145,15 @@ resource "aws_autoscaling_group" "bank_asg" {
   vpc_zone_identifier = [aws_subnet.public_subnet_a.id, aws_subnet.public_subnet_b.id]
   target_group_arns   = [aws_lb_target_group.bank_tg.arn]
 
-  health_check_type         = "ELB"
-  health_check_grace_period = 60
+  health_check_type = "ELB"
+  # 60s was too short — the full cold-start pipeline (dnf update, install
+  # Docker, ECR login + pull a ~190MB image, THEN the ~20s Spring Boot
+  # startup) regularly exceeds it on a t3.micro, so the ALB starts polling
+  # and marking the instance unhealthy before the app is even listening,
+  # which then makes the ASG kill and replace it — discovered live when two
+  # separate instance-refresh attempts both failed on a freshly-launched
+  # replacement that was, in fact, never actually broken.
+  health_check_grace_period = 300
 
   launch_template {
     id      = aws_launch_template.bank_server_lt.id
@@ -150,13 +163,23 @@ resource "aws_autoscaling_group" "bank_asg" {
   # ASG-native equivalent of aws_instance's user_data_replace_on_change: when
   # the launch template gets a new version (new image_id/user_data), roll
   # running instances onto it instead of only applying to future launches.
-  # (launch_template changes always trigger a refresh, so it's implicit —
-  # no explicit `triggers` needed with this provider version.)
+  #
+  # `triggers = ["launch_template"]` IS required here, despite `terraform
+  # validate` warning it's redundant — that warning only holds when `version`
+  # below references the launch template's computed `.latest_version`
+  # attribute, so a new LT version shows up as a diff on this resource itself.
+  # We use the literal string "$Latest" instead (so instances always launch
+  # from whatever is newest without a second apply), which means Terraform
+  # sees no diff on this resource when the LT gets a new default version —
+  # discovered during live verification: pushing a new app image updated the
+  # launch template's default version correctly, but the running ASG
+  # instances were never replaced without this explicit trigger.
   instance_refresh {
     strategy = "Rolling"
     preferences {
       min_healthy_percentage = 50
     }
+    triggers = ["launch_template"]
   }
 
   tag {

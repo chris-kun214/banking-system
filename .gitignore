@@ -46,3 +46,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 infra/lambda/build/
+
+
+### Terraform 验证用的临时 plan 文件 ###
+infra/terraform/*.tfplan

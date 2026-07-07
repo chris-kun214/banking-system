@@ -1,13 +1,29 @@
 """
 Monthly report trigger Lambda.
 
-Runs inside the VPC and calls the Spring Boot app's internal batch endpoint
-over plain HTTP (VPC-internal traffic to the ALB/EC2 security group, no NAT
-needed) rather than reimplementing PDF generation here. Uses only the
-standard library (urllib) so this function ships as a plain zip, unlike the
-daily-reconciliation function which needs psycopg2's C extension.
+Runs inside the VPC and POSTs to the Spring Boot app's internal batch
+endpoint over plain HTTP. The handler itself is agnostic to what
+INTERNAL_API_BASE_URL points at — Terraform (see lambda.tf) currently sets
+it to a specific app instance's private IP:8080, resolved at apply time via
+a `data "aws_instances"` lookup, rather than the ALB's DNS name.
 
-Env vars: INTERNAL_API_BASE_URL (e.g. http://<alb-dns>), INTERNAL_API_KEY.
+That's a live-verification finding worth flagging: calling the ALB's DNS
+name from this Lambda consistently timed out at the full function timeout
+(consistent with a security-group-style silent drop, not a slow response),
+even with healthy targets and no concurrent ASG changes — root cause not
+isolated. Calling an app instance directly works reliably and needs zero AWS
+API access (an elbv2/ec2-describe-based dynamic lookup was tried instead and
+rejected: those calls need the AWS control plane, unreachable from this
+NAT-less private subnet). Tradeoff: the baked-in IP goes stale if the ASG
+replaces its instances until the next `terraform apply` — acceptable at this
+project's scale; a production setup would either pay for a NAT Gateway (to
+support live target lookups) or use Cloud Map service discovery instead.
+
+Uses only the standard library (urllib) so this function ships as a plain
+zip, unlike the daily-reconciliation function which needs psycopg2's C
+extension.
+
+Env vars: INTERNAL_API_BASE_URL (e.g. http://10.0.1.23:8080), INTERNAL_API_KEY.
 """
 
 import json
@@ -15,7 +31,7 @@ import os
 import urllib.error
 import urllib.request
 
-TIMEOUT_SECONDS = 30
+TIMEOUT_SECONDS = 20
 
 
 def lambda_handler(event, context):

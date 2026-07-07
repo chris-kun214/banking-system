@@ -6,6 +6,12 @@
 # monthly_report calls the app's internal HTTP endpoint over the VPC, and
 # neither calls any other AWS API, so one shared execution role covers both
 # and no NAT Gateway / VPC endpoint is required.
+#
+# (During live verification, monthly_report was briefly changed to look up a
+# healthy instance's IP via elbv2/ec2 describe calls instead of hitting the
+# ALB directly — reverted, because those describe calls need the AWS control
+# plane, which is unreachable from this NAT-less private subnet. Calling the
+# ALB is the only approach here that needs zero AWS API access.)
 
 resource "aws_iam_role" "lambda_execution_role" {
   name = "bank-lambda-execution-role"
@@ -33,7 +39,7 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
 
 resource "aws_security_group" "lambda_recon_sg" {
   name        = "bank-lambda-recon-sg"
-  description = "Daily reconciliation Lambda ENIs — egress only, needs to reach RDS on 5432"
+  description = "Daily reconciliation Lambda ENIs - egress only, needs to reach RDS on 5432"
   vpc_id      = aws_vpc.bank_vpc.id
 }
 
@@ -45,7 +51,7 @@ resource "aws_vpc_security_group_egress_rule" "lambda_recon_all" {
 
 resource "aws_security_group" "lambda_report_sg" {
   name        = "bank-lambda-report-sg"
-  description = "Monthly report Lambda ENIs — egress only, needs to reach the app on 8080"
+  description = "Monthly report Lambda ENIs - egress only, needs to reach the app on 8080"
   vpc_id      = aws_vpc.bank_vpc.id
 }
 
@@ -121,6 +127,23 @@ data "archive_file" "monthly_report_zip" {
   output_path = "${path.module}/../lambda/build/monthly_report.zip"
 }
 
+# Resolved by Terraform at apply time (not by the Lambda at invoke time) so
+# the function needs zero AWS API access — sidesteps both (a) whatever is
+# blocking this Lambda from reaching the internet-facing ALB's DNS name, a
+# live-verification finding not yet root-caused, and (b) the NAT-Gateway
+# requirement that a runtime elbv2/ec2 describe call would introduce. Tradeoff:
+# this IP goes stale if the ASG replaces its instances until the next apply —
+# acceptable for this project's scale; a production setup would use Cloud Map
+# service discovery or pay for a NAT Gateway + real-time target lookup instead.
+data "aws_instances" "app_instances" {
+  instance_tags = {
+    Name = "bank-app-server"
+  }
+  instance_state_names = ["running"]
+
+  depends_on = [aws_autoscaling_group.bank_asg]
+}
+
 resource "aws_lambda_function" "monthly_report" {
   function_name    = "monthly-report"
   role             = aws_iam_role.lambda_execution_role.arn
@@ -138,9 +161,7 @@ resource "aws_lambda_function" "monthly_report" {
 
   environment {
     variables = {
-      # Points at the ALB once it exists (see alb.tf); falls back to the app's
-      # own security-group-scoped port until then.
-      INTERNAL_API_BASE_URL = "http://${aws_lb.bank_alb.dns_name}"
+      INTERNAL_API_BASE_URL = "http://${tolist(data.aws_instances.app_instances.private_ips)[0]}:8080"
       INTERNAL_API_KEY      = var.internal_api_key
     }
   }
