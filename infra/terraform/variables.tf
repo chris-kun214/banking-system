@@ -82,3 +82,27 @@ variable "cloudwatch_log_retention_days" {
   default     = 14
 }
 
+variable "daily_reconciliation_image_tag" {
+  description = "Tag of the daily-reconciliation Lambda image, already pushed to its ECR repo before apply. See docs/backend/LAMBDA_DEPLOY_GUIDE.md."
+  type        = string
+  default     = "latest"
+}
+
+variable "asg_min_size" {
+  description = "Minimum app-tier instances. Kept small by default to control cost."
+  type        = number
+  default     = 1
+}
+
+variable "asg_max_size" {
+  description = "Maximum app-tier instances."
+  type        = number
+  default     = 2
+}
+
+variable "asg_desired_capacity" {
+  description = "Desired app-tier instances. Set to 2 only when demonstrating multi-AZ HA; scale back to 1 afterward."
+  type        = number
+  default     = 1
+}
+

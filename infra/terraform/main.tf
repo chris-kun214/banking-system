@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4"
+    }
   }
 }
 
@@ -44,7 +48,22 @@ resource "aws_subnet" "public_subnet_a" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "banking-public-subnet"
+    Name = "banking-public-subnet-a"
+  }
+}
+
+# Second public subnet in another AZ — required by the ALB (needs >=2 AZs) and
+# by the ASG for genuine multi-AZ HA. No NAT Gateway is added: app instances
+# stay in these public subnets (cost tradeoff, see infra/terraform/alb.tf),
+# reachable on 8080 only from the ALB's security group, not the internet.
+resource "aws_subnet" "public_subnet_b" {
+  vpc_id                  = aws_vpc.bank_vpc.id
+  cidr_block              = "10.0.3.0/24"
+  availability_zone       = "${var.aws_region}b"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "banking-public-subnet-b"
   }
 }
 
@@ -89,8 +108,13 @@ resource "aws_route_table" "public_route" {
   }
 }
 
-resource "aws_route_table_association" "public" {
+resource "aws_route_table_association" "public_a" {
   subnet_id      = aws_subnet.public_subnet_a.id
+  route_table_id = aws_route_table.public_route.id
+}
+
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_subnet_b.id
   route_table_id = aws_route_table.public_route.id
 }
 
@@ -112,13 +136,10 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_ssh" {
   ip_protocol       = "tcp"
 }
 
-resource "aws_vpc_security_group_ingress_rule" "ec2_http" {
-  security_group_id = aws_security_group.bank_ec2_group.id
-  cidr_ipv4         = var.allowed_ssh_cidr
-  from_port         = 8080
-  to_port           = 8080
-  ip_protocol       = "tcp"
-}
+# Port 8080 is intentionally NOT opened here to allowed_ssh_cidr or the internet —
+# traffic reaches the app only via the ALB (see aws_security_group_rule.app_from_alb
+# in alb.tf) or from the monthly-report Lambda (aws_security_group_rule.app_from_lambda_report
+# in lambda.tf).
 
 resource "aws_vpc_security_group_egress_rule" "ec2_all" {
   security_group_id = aws_security_group.bank_ec2_group.id
@@ -279,7 +300,7 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 }
 
 # -----------------------------------
-# EC2 instance
+# Shared locals (app server templating — actual launch template/ASG live in alb.tf)
 # -----------------------------------
 
 locals {
@@ -290,35 +311,4 @@ locals {
   db_username     = var.db_username
   db_password     = var.db_password
   db_name         = var.db_name
-}
-
-resource "aws_instance" "bank_server" {
-  ami                         = var.ami_id
-  instance_type               = var.ec2_instance_type
-  key_name                    = var.key_pair
-  subnet_id                   = aws_subnet.public_subnet_a.id
-  vpc_security_group_ids      = [aws_security_group.bank_ec2_group.id]
-  associate_public_ip_address = true
-  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
-  user_data_replace_on_change = true
-
-  user_data = templatefile("${path.module}/docker.sh", {
-    aws_region           = var.aws_region
-    ecr_repo_uri         = var.image_uri
-    db_url               = "jdbc:postgresql://${local.db_address}:${local.db_port}/${local.db_name}"
-    db_username          = local.db_username
-    db_password          = local.db_password
-    sqs_queue_url        = aws_sqs_queue.account_credit_events.id
-    jwt_secret           = var.jwt_secret
-    jwt_expiration       = var.jwt_expiration
-    hibernate_ddl_auto   = var.hibernate_ddl_auto
-    internal_api_key     = var.internal_api_key
-    cloudwatch_log_group = aws_cloudwatch_log_group.app_logs.name
-  })
-
-  tags = {
-    Name = "bank-app-server"
-  }
-
-  depends_on = [aws_db_instance.banking_rds]
 }
