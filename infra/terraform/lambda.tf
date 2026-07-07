@@ -91,6 +91,10 @@ resource "aws_security_group_rule" "app_from_lambda_report" {
 resource "aws_ecr_repository" "daily_reconciliation" {
   name                 = "banking-system/daily-reconciliation"
   image_tag_mutability = "MUTABLE"
+  # Without this, `terraform destroy` fails with RepositoryNotEmptyException
+  # the moment an image has actually been pushed (discovered during teardown
+  # after live verification) — force_delete lets destroy remove the images too.
+  force_delete = true
 }
 
 resource "aws_lambda_function" "daily_reconciliation" {
