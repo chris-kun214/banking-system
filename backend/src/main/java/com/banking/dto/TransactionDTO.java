@@ -22,6 +22,9 @@ public class TransactionDTO {
     private BigDecimal balanceBefore;
     private BigDecimal balanceAfter;
     private LocalDateTime createdAt;
+    private String description;
+    private String aiDescription;
+    private String aiCategory;
 
     /**
      * 从 Transaction 实体转换为 DTO
@@ -36,7 +39,10 @@ public class TransactionDTO {
                 transaction.getAmount(),
                 transaction.getBalanceBefore(),
                 transaction.getBalanceAfter(),
-                transaction.getCreatedAt()
+                transaction.getCreatedAt(),
+                transaction.getDescription(),
+                transaction.getAiDescription(),
+                transaction.getAiCategory()
         );
     }
 }

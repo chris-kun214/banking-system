@@ -28,6 +28,7 @@ public class TransactionService {
     private final AccountRepository accountRepository;
     private final AccountCreditEventPublisher accountCreditEventPublisher;
     private final MeterRegistry meterRegistry;
+    private final OpenAiTransactionDescriptionService openAiTransactionDescriptionService;
 
     private void recordTransactionMetrics(Transaction.TransactionType type, BigDecimal amount) {
         Counter.builder("banking.transactions.count")
@@ -65,6 +66,7 @@ public class TransactionService {
         transaction.setBalanceBefore(balanceBefore);
         transaction.setBalanceAfter(balanceAfter);
         transaction.setCreatedAt(LocalDateTime.now());
+        transaction.setDescription(request.getDescription());
 
         Transaction savedTransaction = transactionRepository.save(transaction);
         accountCreditEventPublisher.publishDepositEvent(savedTransaction);
@@ -103,6 +105,7 @@ public class TransactionService {
         transaction.setBalanceBefore(balanceBefore);
         transaction.setBalanceAfter(balanceAfter);
         transaction.setCreatedAt(LocalDateTime.now());
+        transaction.setDescription(request.getDescription());
 
         Transaction savedTransaction = transactionRepository.save(transaction);
         recordTransactionMetrics(Transaction.TransactionType.WITHDRAW, request.getAmount());
@@ -159,7 +162,8 @@ public class TransactionService {
         transferOutTransaction.setBalanceBefore(sourceBalanceBefore);
         transferOutTransaction.setBalanceAfter(sourceBalanceAfter);
         transferOutTransaction.setCreatedAt(LocalDateTime.now());
-        
+        transferOutTransaction.setDescription(request.getDescription());
+
         Transaction savedTransferOut = transactionRepository.save(transferOutTransaction);
 
         // 创建转入交易记录
@@ -298,6 +302,24 @@ public class TransactionService {
      */
     public boolean transactionExists(Long id) {
         return transactionRepository.existsById(id);
+    }
+
+    /**
+     * 按需触发 LLM 交易描述推荐（不挂在存取款/转账关键路径上，避免第三方 API 延迟/故障影响资金操作）
+     */
+    @Transactional
+    public TransactionDTO suggestDescription(Long id) {
+        Transaction transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("交易记录不存在，ID: " + id));
+
+        OpenAiTransactionDescriptionService.Suggestion suggestion =
+                openAiTransactionDescriptionService.suggest(transaction, transaction.getDescription());
+
+        transaction.setAiDescription(suggestion.description());
+        transaction.setAiCategory(suggestion.category());
+
+        Transaction saved = transactionRepository.save(transaction);
+        return TransactionDTO.fromEntity(saved);
     }
 
     /**

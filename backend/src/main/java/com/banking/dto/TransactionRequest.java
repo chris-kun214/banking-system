@@ -23,5 +23,8 @@ public class TransactionRequest {
 
     // 用于转账的目标账号
     private String targetAccountNumber;
+
+    // 可选：用户填写的原始备注，供 LLM 交易描述推荐使用
+    private String description;
 }
 

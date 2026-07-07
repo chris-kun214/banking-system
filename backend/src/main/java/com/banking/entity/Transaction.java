@@ -42,6 +42,17 @@ public class Transaction {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // 用户可选填的原始备注
+    @Column(name = "description", length = 255)
+    private String description;
+
+    // LLM（OpenAI）生成的交易描述推荐，见 OpenAiTransactionDescriptionService
+    @Column(name = "ai_description", length = 255)
+    private String aiDescription;
+
+    @Column(name = "ai_category", length = 50)
+    private String aiCategory;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
