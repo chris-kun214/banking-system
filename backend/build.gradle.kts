@@ -30,16 +30,21 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-security")
-    
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+
     // Jackson for JSON processing
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
-    
+
     // AWS SQS SDK
     implementation("software.amazon.awssdk:sqs:2.25.45")
     implementation("software.amazon.awssdk:auth:2.25.45")
     implementation("software.amazon.awssdk:regions:2.25.45")
-    
+
+    // CloudWatch metrics export (Micrometer)
+    implementation("io.micrometer:micrometer-registry-cloudwatch2:1.12.2")
+    implementation("software.amazon.awssdk:cloudwatch:2.25.45")
+
     // PDF generation
     implementation("org.apache.pdfbox:pdfbox:2.0.32")
 

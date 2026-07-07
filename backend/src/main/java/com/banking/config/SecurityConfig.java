@@ -65,11 +65,17 @@ public class SecurityConfig {
 								"/api/public/**",
 								"/error",
 								"/swagger-ui/**",
-								"/v3/api-docs/**")
+								"/v3/api-docs/**",
+								"/actuator/health")
 						.permitAll()
+
+						// 内部端点：不走用户 JWT，由 InternalApiKeyFilter 用共享密钥单独鉴权
+						.requestMatchers("/api/internal/**").permitAll()
 
 						// 管理员端点
 						.requestMatchers("/api/admin/**").hasRole("ADMIN")
+						// 其余 actuator 端点（metrics/info 等）可能暴露内部细节，仅管理员可访问
+						.requestMatchers("/actuator/**").hasRole("ADMIN")
 
 						// 其他所有请求需要认证
 						.anyRequest().authenticated())

@@ -6,6 +6,9 @@ import com.banking.entity.Account;
 import com.banking.entity.Transaction;
 import com.banking.repository.AccountRepository;
 import com.banking.repository.TransactionRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,18 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
     private final AccountCreditEventPublisher accountCreditEventPublisher;
+    private final MeterRegistry meterRegistry;
+
+    private void recordTransactionMetrics(Transaction.TransactionType type, BigDecimal amount) {
+        Counter.builder("banking.transactions.count")
+                .tag("type", type.name())
+                .register(meterRegistry)
+                .increment();
+        DistributionSummary.builder("banking.transactions.amount")
+                .tag("type", type.name())
+                .register(meterRegistry)
+                .record(amount.doubleValue());
+    }
 
     /**
      * 存款
@@ -53,6 +68,7 @@ public class TransactionService {
 
         Transaction savedTransaction = transactionRepository.save(transaction);
         accountCreditEventPublisher.publishDepositEvent(savedTransaction);
+        recordTransactionMetrics(Transaction.TransactionType.DEPOSIT, request.getAmount());
         return TransactionDTO.fromEntity(savedTransaction);
     }
 
@@ -89,6 +105,7 @@ public class TransactionService {
         transaction.setCreatedAt(LocalDateTime.now());
 
         Transaction savedTransaction = transactionRepository.save(transaction);
+        recordTransactionMetrics(Transaction.TransactionType.WITHDRAW, request.getAmount());
         return TransactionDTO.fromEntity(savedTransaction);
     }
 
@@ -157,6 +174,7 @@ public class TransactionService {
         transferInTransaction.setCreatedAt(LocalDateTime.now());
         
         transactionRepository.save(transferInTransaction);
+        recordTransactionMetrics(Transaction.TransactionType.TRANSFER_OUT, request.getAmount());
 
         return TransactionDTO.fromEntity(savedTransferOut);
     }

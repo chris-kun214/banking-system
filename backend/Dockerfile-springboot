@@ -57,9 +57,9 @@ USER spring:spring
 # 暴露 Spring Boot 服务的端口
 EXPOSE 9090
 
-# 健康检查
+# 健康检查（Spring Boot Actuator，同一路径也用作 ALB 目标组健康检查）
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:9090/api/auth/health || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:9090/actuator/health || exit 1
 
 # JVM 优化参数（可通过环境变量覆盖）
 ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
