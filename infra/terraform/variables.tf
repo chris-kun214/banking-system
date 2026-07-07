@@ -66,7 +66,19 @@ variable "hibernate_ddl_auto" {
 }
 
 variable "allowed_ssh_cidr" {
-  description = "CIDR allowed to reach the EC2 instance over SSH (22) and app port (8080). Supply your own IP/32 via terraform.tfvars — do not default to a real address."
+  description = "CIDR allowed to reach the EC2 instance over SSH (22). Supply your own IP/32 via terraform.tfvars — do not default to a real address."
   type        = string
+}
+
+variable "internal_api_key" {
+  description = "Shared-secret header value for /api/internal/** (called by the reconciliation/report Lambdas). Must be supplied via terraform.tfvars (gitignored) or TF_VAR_internal_api_key."
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudwatch_log_retention_days" {
+  description = "Retention for the app's CloudWatch Logs log group"
+  type        = number
+  default     = 14
 }
 

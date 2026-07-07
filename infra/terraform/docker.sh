@@ -25,9 +25,15 @@ sudo docker pull "${ecr_repo_uri}"
 sudo docker rm -f springboot-app || true
 
 # 拉取并运行 Spring Boot 容器
+# --log-driver=awslogs：容器 stdout/stderr 直接发到 CloudWatch Logs（日志组已由 Terraform 预建，
+# 这里不加 awslogs-create-group，实例角色也没有 logs:CreateLogGroup 权限，权限最小化）
 sudo docker run -d \
   --restart always \
   -p 8080:9090 \
+  --log-driver=awslogs \
+  --log-opt awslogs-region="${aws_region}" \
+  --log-opt awslogs-group="${cloudwatch_log_group}" \
+  --log-opt awslogs-stream="app" \
   -e SPRING_PROFILES_ACTIVE="prod" \
   -e SERVER_PORT="9090" \
   -e SPRING_DATASOURCE_URL="${db_url}" \
@@ -40,5 +46,7 @@ sudo docker run -d \
   -e JWT_EXPIRATION="${jwt_expiration}" \
   -e HIBERNATE_DDL_AUTO="${hibernate_ddl_auto}" \
   -e MONTHLY_REPORT_OUTPUT_DIR="/tmp/banking/reports/monthly" \
+  -e INTERNAL_API_KEY="${internal_api_key}" \
+  -e CLOUDWATCH_METRICS_ENABLED="true" \
   --name springboot-app \
   "${ecr_repo_uri}"

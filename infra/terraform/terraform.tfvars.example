@@ -19,3 +19,9 @@ hibernate_ddl_auto = "update"
 
 # Your own IP in CIDR form, e.g. "203.0.113.10/32" — never default this to a real IP in committed files.
 allowed_ssh_cidr = "203.0.113.10/32"
+
+# Shared secret for /api/internal/** (reconciliation + monthly-report Lambdas). Generate with:
+#   openssl rand -base64 32
+internal_api_key = "changeme"
+
+cloudwatch_log_retention_days = 14

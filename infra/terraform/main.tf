@@ -189,6 +189,19 @@ resource "aws_db_instance" "banking_rds" {
 }
 
 # -----------------------------------
+# CloudWatch Logs
+# -----------------------------------
+
+resource "aws_cloudwatch_log_group" "app_logs" {
+  name              = "/banking-system/app"
+  retention_in_days = var.cloudwatch_log_retention_days
+
+  tags = {
+    Name = "banking-system-app-logs"
+  }
+}
+
+# -----------------------------------
 # EC2 IAM
 # -----------------------------------
 
@@ -234,6 +247,32 @@ resource "aws_iam_role_policy" "ec2_sqs_send" {
   })
 }
 
+resource "aws_iam_role_policy" "ec2_cloudwatch" {
+  name = "bank-ec2-cloudwatch-policy"
+  role = aws_iam_role.ec2_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["cloudwatch:PutMetricData"]
+        Resource = "*" # PutMetricData does not support resource-level restriction
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:PutLogEvents",
+          "logs:CreateLogStream",
+          "logs:DescribeLogStreams"
+        ]
+        # Intentionally no logs:CreateLogGroup — the log group is pre-created by Terraform above.
+        Resource = "${aws_cloudwatch_log_group.app_logs.arn}:*"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "ec2_profile" {
   name = "bank-ec2-profile"
   role = aws_iam_role.ec2_role.name
@@ -264,15 +303,17 @@ resource "aws_instance" "bank_server" {
   user_data_replace_on_change = true
 
   user_data = templatefile("${path.module}/docker.sh", {
-    aws_region         = var.aws_region
-    ecr_repo_uri       = var.image_uri
-    db_url             = "jdbc:postgresql://${local.db_address}:${local.db_port}/${local.db_name}"
-    db_username        = local.db_username
-    db_password        = local.db_password
-    sqs_queue_url      = aws_sqs_queue.account_credit_events.id
-    jwt_secret         = var.jwt_secret
-    jwt_expiration     = var.jwt_expiration
-    hibernate_ddl_auto = var.hibernate_ddl_auto
+    aws_region           = var.aws_region
+    ecr_repo_uri         = var.image_uri
+    db_url               = "jdbc:postgresql://${local.db_address}:${local.db_port}/${local.db_name}"
+    db_username          = local.db_username
+    db_password          = local.db_password
+    sqs_queue_url        = aws_sqs_queue.account_credit_events.id
+    jwt_secret           = var.jwt_secret
+    jwt_expiration       = var.jwt_expiration
+    hibernate_ddl_auto   = var.hibernate_ddl_auto
+    internal_api_key     = var.internal_api_key
+    cloudwatch_log_group = aws_cloudwatch_log_group.app_logs.name
   })
 
   tags = {
