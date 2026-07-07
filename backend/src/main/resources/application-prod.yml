@@ -92,9 +92,13 @@ management:
     health:
       show-details: when-authorized
   # CloudWatch 自定义 metrics 导出（生产环境才推送，本地/测试不需要）
-  metrics:
-    export:
-      cloudwatch:
+  # 注意：Spring Boot 3.x 的属性前缀是 management.cloudwatch.metrics.export.*，
+  # 不是 management.metrics.export.cloudwatch.*（后者对大多数其它 registry 适用，
+  # CloudWatch2 registry 是个例外）——第一次上线验证时踩过这个坑，指标一直没有出现在
+  # CloudWatch 里，最后靠对照 Spring Boot 官方属性文档才发现前缀写错了。
+  cloudwatch:
+    metrics:
+      export:
         namespace: BankingSystem
         batch-size: 20
         step: 1m

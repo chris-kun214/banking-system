@@ -124,3 +124,9 @@ variable "replica_instance_class" {
   default     = "db.t4g.micro"
 }
 
+variable "db_backup_retention_days" {
+  description = "RDS automated backup retention (days). Required to be >0 before a read replica can be created; also just good DR practice on its own."
+  type        = number
+  default     = 1
+}
+
