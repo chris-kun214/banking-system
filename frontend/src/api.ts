@@ -1,7 +1,16 @@
 // API 服务
-import type { LoginRequest, RegisterRequest, AuthResponse, ApiResponse } from './types';
+import type {
+  LoginRequest,
+  RegisterRequest,
+  AuthResponse,
+  ApiResponse,
+  Account,
+  CreateAccountRequest,
+  Transaction,
+  TransactionRequest,
+} from './types';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:9090/api';
 
 // 通用请求函数
 async function request<T>(
@@ -94,6 +103,94 @@ export const authApi = {
       email: localStorage.getItem('email'),
       role: localStorage.getItem('role'),
     };
+  },
+};
+
+// 账户 API
+export const accountApi = {
+  // 获取当前用户的所有账户
+  getMyAccounts: async (): Promise<Account[]> => {
+    const response = await request<Account[]>('/accounts/my');
+    return response.data ?? [];
+  },
+
+  // 创建账户
+  createAccount: async (payload: CreateAccountRequest): Promise<Account> => {
+    const response = await request<Account>('/accounts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.data!;
+  },
+};
+
+// 交易 API
+export const transactionApi = {
+  deposit: async (payload: TransactionRequest): Promise<Transaction> => {
+    const response = await request<Transaction>('/transactions/deposit', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.data!;
+  },
+
+  withdraw: async (payload: TransactionRequest): Promise<Transaction> => {
+    const response = await request<Transaction>('/transactions/withdraw', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.data!;
+  },
+
+  transfer: async (payload: TransactionRequest): Promise<Transaction> => {
+    const response = await request<Transaction>('/transactions/transfer', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.data!;
+  },
+
+  // 按账户 ID 查询交易记录
+  getByAccountId: async (accountId: number): Promise<Transaction[]> => {
+    const response = await request<Transaction[]>(`/transactions/account-id/${accountId}`);
+    return response.data ?? [];
+  },
+
+  // 触发一次 LLM 交易描述推荐
+  suggestDescription: async (transactionId: number): Promise<Transaction> => {
+    const response = await request<Transaction>(`/transactions/${transactionId}/suggest-description`, {
+      method: 'POST',
+    });
+    return response.data!;
+  },
+};
+
+// 报表 API
+export const reportApi = {
+  // 下载月度对账单 PDF（用 fetch 而不是 <a href>，因为要带 Authorization header）
+  downloadMonthlyStatement: async (accountNumber: string, month: string): Promise<void> => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(
+      `${API_BASE_URL}/reports/monthly?accountNumber=${encodeURIComponent(accountNumber)}&month=${encodeURIComponent(month)}`,
+      {
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.message ?? '生成对账单失败');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `statement-${accountNumber}-${month}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   },
 };
 
