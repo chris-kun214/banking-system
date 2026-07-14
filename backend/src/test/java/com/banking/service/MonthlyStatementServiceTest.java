@@ -14,13 +14,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.YearMonth;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -87,5 +90,21 @@ class MonthlyStatementServiceTest {
         int generated = monthlyStatementService.generateMonthlyStatementsForAllAccounts(YearMonth.of(2026, 6));
 
         assertEquals(1, generated);
+    }
+
+    @Test
+    @DisplayName("生成 PDF - 非 ASCII 账户名（如中文）不应导致 PDFBox 渲染失败")
+    void generateMonthlyStatementPdf_nonAsciiAccountName_doesNotThrow() {
+        Account chineseNamedAccount = new Account();
+        chineseNamedAccount.setAccountNumber("ACC-CN");
+        chineseNamedAccount.setAccountName("日常账户");
+        chineseNamedAccount.setBalance(BigDecimal.valueOf(1000));
+
+        when(accountRepository.findByAccountNumber("ACC-CN")).thenReturn(Optional.of(chineseNamedAccount));
+
+        Path result = assertDoesNotThrow(() ->
+                monthlyStatementService.generateMonthlyStatementPdf("ACC-CN", YearMonth.of(2026, 6)));
+
+        assertTrue(Files.exists(result));
     }
 }

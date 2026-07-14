@@ -97,7 +97,7 @@ public class MonthlyStatementService {
             content.showText("Account Number: " + account.getAccountNumber());
             content.newLineAtOffset(0, -lineHeight);
             y -= lineHeight;
-            content.showText("Account Name: " + account.getAccountName());
+            content.showText("Account Name: " + sanitizeForPdf(account.getAccountName()));
             content.newLineAtOffset(0, -lineHeight);
             y -= lineHeight;
             content.showText("Month: " + yearMonth);
@@ -188,5 +188,24 @@ public class MonthlyStatementService {
     private boolean isIncoming(Transaction tx) {
         return tx.getTransactionType() == Transaction.TransactionType.DEPOSIT
                 || tx.getTransactionType() == Transaction.TransactionType.TRANSFER_IN;
+    }
+
+    /**
+     * PDFBox's built-in Type1 fonts (Helvetica) only cover WinAnsiEncoding — any character
+     * outside it (e.g. CJK) throws at render time. Surfaced by manually testing the PDF
+     * download in the UI with a Chinese account name ("日常账户"), something no automated
+     * test had exercised. Strips to ASCII rather than crashing; a full fix would embed a
+     * Unicode-capable TrueType font via PDType0Font instead.
+     */
+    private static String sanitizeForPdf(String value) {
+        if (value == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            sb.append(c < 128 ? c : '?');
+        }
+        return sb.toString();
     }
 }

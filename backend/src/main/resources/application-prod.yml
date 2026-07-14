@@ -65,6 +65,14 @@ jwt:
   expiration: ${JWT_EXPIRATION:86400000}
 
 # ===================================
+# CORS 配置 - 生产环境
+# ===================================
+app:
+  cors:
+    # 逗号分隔的实际前端域名，例如 https://banking.example.com
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+# ===================================
 # 日志配置 - 生产环境
 # ===================================
 logging:
